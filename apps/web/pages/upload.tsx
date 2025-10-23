@@ -1,91 +1,84 @@
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
+import ReferencePicker from "@/components/ReferencePicker";
+import OverlayEditor from "@/components/OverlayEditor";
+import { STYLES } from "@/lib/catalog";
 
 export default function UploadPage() {
-  const [image, setImage] = useState<string | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
+  const [image, setImage] = useState<string | null>(null);
+  const [ppi, setPpi] = useState<number | null>(null);
+  const [styleId, setStyleId] = useState<string>(STYLES[0].id);
+  const [preview, setPreview] = useState<string | null>(null);
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => setImage(reader.result as string);
-    reader.readAsDataURL(file);
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onloadend = () => setImage(r.result as string);
+    r.readAsDataURL(f);
   }
 
-  // simple mock preview overlay
-  function addFireplace() {
-    if (!image) return;
-    const overlay = document.createElement("canvas");
-    const base = new Image();
-    base.src = image;
-    base.onload = () => {
-      overlay.width = base.width;
-      overlay.height = base.height;
-      const ctx = overlay.getContext("2d")!;
-      ctx.drawImage(base, 0, 0);
-      // demo placeholder rectangle (fireplace)
-      ctx.fillStyle = "rgba(160,80,40,0.7)";
-      const w = base.width * 0.4;
-      const h = base.height * 0.25;
-      ctx.fillRect(base.width / 2 - w / 2, base.height - h - 20, w, h);
-      setPreview(overlay.toDataURL("image/png"));
-    };
-  }
+  const style = STYLES.find(s => s.id === styleId)!;
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-50">
-      <h1 className="text-2xl font-semibold mb-4">📸 Upload Your Space</h1>
+    <main className="min-h-screen bg-gray-50" style={{ fontFamily: "ui-sans-serif, system-ui" }}>
+      <div className="max-w-xl mx-auto p-4">
+        <h1 className="text-2xl font-semibold mb-3">📸 Upload & Calibrate</h1>
 
-      {!image && (
-        <button
-          onClick={() => fileInput.current?.click()}
-          className="bg-black text-white px-6 py-3 rounded-full text-lg"
-        >
-          Choose Photo
-        </button>
-      )}
-
-      <input
-        type="file"
-        accept="image/*"
-        ref={fileInput}
-        onChange={handleFile}
-        className="hidden"
-      />
-
-      {image && !preview && (
-        <>
-          <img
-            src={image}
-            alt="uploaded"
-            className="w-full max-w-md rounded-lg shadow-md mb-4"
-          />
-          <button
-            onClick={addFireplace}
-            className="bg-amber-600 text-white px-6 py-2 rounded-lg"
-          >
-            Add Fireplace
+        {!image && (
+          <button onClick={() => fileInput.current?.click()} className="bg-black text-white px-5 py-3 rounded">
+            Choose Photo
           </button>
-        </>
-      )}
+        )}
+        <input type="file" accept="image/*" ref={fileInput} onChange={handleFile} className="hidden" />
 
-      {preview && (
-        <>
-          <img
-            src={preview}
-            alt="preview"
-            className="w-full max-w-md rounded-lg shadow-lg mb-4"
-          />
-          <a
-            href={preview}
-            download="101visualizer-preview.png"
-            className="underline text-blue-600"
-          >
-            Download Preview
-          </a>
-        </>
-      )}
+        {image && ppi === null && (
+          <div className="mt-4">
+            <ReferencePicker image={image} onCalibrated={setPpi} />
+          </div>
+        )}
+
+        {image && ppi !== null && !preview && (
+          <div className="mt-6 space-y-4">
+            <div>
+              <label className="block text-sm mb-1">Fireplace style</label>
+              <select
+                value={styleId}
+                onChange={(e) => setStyleId(e.target.value)}
+                className="border rounded px-3 py-2 w-full bg-white"
+              >
+                {STYLES.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <OverlayEditor
+              baseImage={image}
+              overlayImage={style.imageDataUrl}
+              aspectRatio={style.aspectRatio}
+              minWidthIn={style.minWidthIn}
+              maxWidthIn={style.maxWidthIn}
+              ppi={ppi}
+              onComposite={(url) => setPreview(url)}
+            />
+          </div>
+        )}
+
+        {preview && (
+          <div className="mt-6">
+            <img src={preview} alt="preview" className="w-full rounded shadow" />
+            <div className="flex gap-3 mt-3">
+              <a className="bg-amber-600 text-white px-4 py-2 rounded" href={preview} download="101visualizer-preview.png">
+                Download Preview
+              </a>
+              <button className="px-4 py-2 border rounded" onClick={() => setPreview(null)}>
+                Back & adjust
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </main>
   );
 }
